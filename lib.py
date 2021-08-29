@@ -9,12 +9,11 @@ def char_embed(inputs, vocab_size, num_units, zero_pad=True, scope="embedding", 
       A `Tensor` with one more rank than inputs's. The last dimesionality
         should be `num_units`.
     """
-    with tf.compat.v1.variable_scope(scope, reuse=reuse):
-        lookup_table = tf.Variable(tf.random.normal([vocab_size, num_units], mean=0.0, stddev=0.01),
-                shape=[vocab_size, num_units], dtype=tf.float32)
-        if zero_pad:
-            lookup_table = tf.concat((tf.zeros(shape=[1, num_units]), 
-                                      lookup_table[1:, :]), 0)
+    lookup_table = tf.Variable(tf.random.normal([vocab_size, num_units], mean=0.0, stddev=0.01),
+            shape=[vocab_size, num_units], dtype=tf.float32)
+    if zero_pad:
+        lookup_table = tf.concat((tf.zeros(shape=[1, num_units]), 
+                                  lookup_table[1:, :]), 0)
     return tf.nn.embedding_lookup(lookup_table, inputs)
 
 
@@ -57,11 +56,10 @@ def pre_net(input, num_units=[256, 128], dropout=0.5, scope='pre_net', is_traini
     """
     TODO description pre_net, mb remove scope
     """
-    with tf.compat.v1.variable_scope(scope=scope):
-        output = tf.keras.layers.Dense(num_units[0], activation='relu', name="dense1")(input)
-        output = tf.keras.layers.Dropout(rate=dropout, name="dropout1")(output)
-        output = tf.keras.layers.Dense(num_units[1], activation='relu', name="dense2")(output)
-        output = tf.keras.layers.Dropout(rate=dropout, name="dropout2")(output)
+    output = tf.keras.layers.Dense(num_units[0], activation='relu', name="dense1")(input)
+    output = tf.keras.layers.Dropout(rate=dropout, name="dropout1")(output)
+    output = tf.keras.layers.Dense(num_units[1], activation='relu', name="dense2")(output)
+    output = tf.keras.layers.Dropout(rate=dropout, name="dropout2")(output)
     return output
 
 
@@ -140,16 +138,14 @@ def gru(inputs, num_units=None, bidirection=False, scope="gru", reuse=None):
       If bidirection is True, a 3d tensor with shape of [N, T, 2*num_units],
         otherwise [N, T, num_units].
     """
-    with tf.compat.v1.variable_scope(scope, reuse=reuse):
-        if num_units is None:
-            num_units = inputs.get_shape().as_list[-1]
-        rnn = tf.keras.layers.GRU(num_units, return_sequences=True)
-        if bidirection:
-            rnn_bw = tf.keras.layers.GRU(num_units, return_sequences=True)
-            outputs, _ = tf.keras.layers.Bidirectional(forward_layer, backward_layer=backward_layer)(inputs)
-        else:
-            outputs, _ = rnn(inputs)
-        return outputs
+    if num_units is None:
+        num_units = inputs.get_shape().as_list[-1]
+    rnn = tf.keras.layers.GRU(num_units)
+    if bidirection:
+        outputs = tf.keras.layers.Bidirectional(layer=rnn)(inputs)
+    else:
+        outputs = rnn(inputs)
+    return outputs
 
 
 def highway_net(inputs, num_units=None, scope="highwaynet", reuse=None):
@@ -159,8 +155,8 @@ def highway_net(inputs, num_units=None, scope="highwaynet", reuse=None):
     with tf.compat.v1.variable_scope(scope, reuse=reuse):
         if not num_units:
             num_units = inputs.get_shape()[-1]
-        T = tf.keras.layers.Dense(num_units, activation=tf.nn.sigmoid, name="dense1")(input)
-        H = tf.keras.layers.Dense(num_units, activation=tf.nn.relu, name="dense2")(input)
+        T = tf.keras.layers.Dense(num_units, activation=tf.nn.sigmoid, name="dense1")(inputs)
+        H = tf.keras.layers.Dense(num_units, activation=tf.nn.relu, name="dense2")(inputs)
         outputs = T * H + (1.0 - T) * inputs
         return outputs
 
@@ -190,7 +186,7 @@ def attention_decoder(inputs, memory, num_units=None, scope="attention_decoder",
         output, state = tf.keras.layers.RNN(cell_with_attention, return_state=True)(inputs)
     return outputs, state
 
-def CBHG(inputs, pos='encoder', is_training):
+def CBHG(inputs, pos='encoder', is_training=None):
     is_decoder = pos != 'encoder'
     if is_decoder:
         K = 8
